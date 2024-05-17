@@ -8,8 +8,8 @@ interface BlockState {
   flagged?: boolean
 }
 
-const WIDTH = 10
-const HEIGHT = 10
+const WIDTH = 5
+const HEIGHT = 5
 
 const state = reactive(Array.from({ length: HEIGHT }, (_, y) => Array.from({ length: WIDTH }, (_, x): BlockState => ({
   x,
@@ -83,8 +83,10 @@ function getSliblings(block: BlockState) {
 }
 
 function getBlockClass(block: BlockState) {
-  if (!block.revealed)
+  if (block.flagged)
     return 'bg-gray-500/10'
+  if (!block.revealed)
+    return 'bg-gray-500/10 hover:bg-gray-500/20'
 
   return block.mine ? 'bg-red-500/50' : numberColors[block.adjacentMines]
 }
@@ -103,7 +105,13 @@ function expendZero(block: BlockState) {
 }
 
 let mineGenerated = false
-const isDev = true
+const isDev = false
+
+function onContextmenu(block: BlockState) {
+  if (block.revealed)
+    return
+  block.flagged = !block.flagged
+}
 
 function onClick(block: BlockState) {
   if (!mineGenerated) {
@@ -114,9 +122,22 @@ function onClick(block: BlockState) {
   if (block.mine) {
     // Game over
     alert('Game over')
+    return
   }
 
   expendZero(block)
+}
+
+watchEffect(checkGameState)
+
+function checkGameState() {
+  const blocks = state.flat()
+  if (blocks.every(block => block.revealed || block.flagged)) {
+    if (blocks.some(block => block.flagged && !block.mine))
+      alert('You cheated!')
+    else
+      alert('You win!')
+  }
 }
 </script>
 
@@ -125,8 +146,11 @@ function onClick(block: BlockState) {
     <h1>Welcome to Vue Minsweeper</h1>
     <div>
       <div v-for="(row, y) in state" :key="y" flex="~" items-center justify-center>
-        <button v-for="(block, x) in row" :key="x" :class="getBlockClass(block)" flex="~" m-0.5 h-10 w-10 items-center justify-center border vertical-top hover="bg-gray/50" @click="onClick(block)">
-          <template v-if="block.revealed || isDev">
+        <button v-for="(block, x) in row" :key="x" :class="getBlockClass(block)" flex="~" m-0.5 h-10 w-10 items-center justify-center border vertical-top @click="onClick(block)" @contextmenu.prevent="onContextmenu(block)">
+          <template v-if="block.flagged">
+            <div i-mdi:flag text-red-500 />
+          </template>
+          <template v-else-if="block.revealed || isDev">
             <div v-if="block.mine" i-mdi:mine />
             <div v-else>
               {{ block.adjacentMines || '0' }}
